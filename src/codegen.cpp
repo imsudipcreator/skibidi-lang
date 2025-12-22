@@ -1,4 +1,4 @@
-#include "include/ast.h"
+#include "ast.h"
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
 #include <llvm-18/llvm/IR/Module.h>

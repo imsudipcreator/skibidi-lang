@@ -1,5 +1,5 @@
-#include "include/parser.h"
-#include "include/lexer.h"
+#include "parser.h"
+#include "lexer.h"
 #include <iostream>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/Module.h>

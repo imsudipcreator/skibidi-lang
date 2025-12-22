@@ -1,9 +1,9 @@
-#include "include/lexer.h"
+#include "lexer.h"
 #include <cctype>
 #include <cstdio>
 
 std::string IdentifierStr;
-int NumVal;
+double NumVal;
 
 int gettok()
 {

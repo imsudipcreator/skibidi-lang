@@ -1,6 +1,8 @@
-#include "include/parser.h"
-#include "include/lexer.h"
+#include "parser.h"
+#include "lexer.h"
 #include <llvm-18/llvm/Support/raw_ostream.h>
+#include <llvm-18/llvm/IR/Module.h>
+
 
 extern std::unique_ptr<llvm::Module> TheModule;
 extern llvm::LLVMContext TheContext;
