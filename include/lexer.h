@@ -14,7 +14,7 @@ enum Token {
   tok_number     = -6
 };
 
-extern std::string IdentifierStr;
-extern double NumVal;
+static std::string IdentifierStr;
+static double NumVal;
 
 int gettok();

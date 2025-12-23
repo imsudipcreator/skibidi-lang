@@ -1,0 +1,17 @@
+gyatt x = 10;
+gyatt y = 20;
+
+skibidi add(a, b){
+    rizz a + b;
+}
+
+sus(x > y){
+    yap("x got more aura");
+} nah {
+    yap("y got more aura");
+}
+
+loopin(x < 5){
+    yap(x);
+    x = x + 1;
+}

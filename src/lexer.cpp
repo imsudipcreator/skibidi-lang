@@ -9,6 +9,7 @@ int gettok()
 {
     static int LastChar = ' ';
 
+    /* Skip any whitespace */
     while (isspace(LastChar))
         LastChar = getchar();
 
@@ -27,8 +28,8 @@ int gettok()
     }
 
     if (isdigit(LastChar) || LastChar == '.')
-    { // Number: [0-9.]+
-        std::string NumStr;
+    { 
+        std::string NumStr; // Number: [0-9.]+
         do
         {
             NumStr += LastChar;
@@ -50,6 +51,7 @@ int gettok()
             return gettok();
     }
 
+    /* Check for end of file. */
     if (LastChar == EOF)
         return tok_eof;
 
