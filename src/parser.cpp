@@ -1,13 +1,33 @@
+#include "globals.h"
+#include "lexer.h"
 #include "parser.h"
 #include "ast.h"
-#include "lexer.h"
-#include <vector>
-#include <map>
+
+std::unique_ptr<ExprAST> ParseExpression();
+std::unique_ptr<PrototypeAST> ParsePrototype();
+std::unique_ptr<FunctionAST> ParseDefinition();
+std::unique_ptr<FunctionAST> ParseTopLevelExpr();
+std::unique_ptr<PrototypeAST> ParseExtern();
+
 
 int CurTok;
+
 int getNextToken()
 {
   return CurTok = gettok();
+}
+
+/// GetTokPrecedence - Get the precedence of the pending binary operator token.
+int GetTokPrecedence()
+{
+  if (!isascii(CurTok))
+    return -1;
+
+  // Make sure it's a declared binop.
+  int TokPrec = BinopPrecedence[CurTok];
+  if (TokPrec <= 0)
+    return -1;
+  return TokPrec;
 }
 
 /// LogError* - These are little helper functions for error handling.
@@ -23,7 +43,7 @@ std::unique_ptr<PrototypeAST> LogErrorP(const char *Str)
 }
 
 /// numberexpr ::= number
-static std::unique_ptr<ExprAST> ParseNumberExpr()
+std::unique_ptr<ExprAST> ParseNumberExpr()
 {
   auto Result = std::make_unique<NumberExprAST>(NumVal);
   getNextToken(); // consume the number
@@ -31,7 +51,7 @@ static std::unique_ptr<ExprAST> ParseNumberExpr()
 }
 
 /// parenexpr ::= '(' expression ')'
-static std::unique_ptr<ExprAST> ParseParenExpr()
+std::unique_ptr<ExprAST> ParseParenExpr()
 {
   getNextToken(); // eat (.
   auto V = ParseExpression();
@@ -47,7 +67,7 @@ static std::unique_ptr<ExprAST> ParseParenExpr()
 /// identifierexpr
 ///   ::= identifier
 ///   ::= identifier '(' expression* ')'
-static std::unique_ptr<ExprAST> ParseIdentifierExpr()
+std::unique_ptr<ExprAST> ParseIdentifierExpr()
 {
   std::string IdName = IdentifierStr;
 
@@ -87,7 +107,7 @@ static std::unique_ptr<ExprAST> ParseIdentifierExpr()
 ///   ::= identifierexpr
 ///   ::= numberexpr
 ///   ::= parenexpr
-static std::unique_ptr<ExprAST> ParsePrimary()
+std::unique_ptr<ExprAST> ParsePrimary()
 {
   switch (CurTok)
   {
@@ -104,7 +124,7 @@ static std::unique_ptr<ExprAST> ParsePrimary()
 
 /// binoprhs
 ///   ::= ('+' primary)*
-static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
+std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
                                               std::unique_ptr<ExprAST> LHS)
 {
   // If this is a binop, find its precedence.
@@ -145,7 +165,7 @@ static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
 /// expression
 ///   ::= primary binoprhs
 ///
-static std::unique_ptr<ExprAST> ParseExpression()
+std::unique_ptr<ExprAST> ParseExpression()
 {
   auto LHS = ParsePrimary();
   if (!LHS)
@@ -156,7 +176,7 @@ static std::unique_ptr<ExprAST> ParseExpression()
 
 /// prototype
 ///   ::= id '(' id* ')'
-static std::unique_ptr<PrototypeAST> ParsePrototype()
+std::unique_ptr<PrototypeAST> ParsePrototype()
 {
   if (CurTok != tok_identifier)
     return LogErrorP("Expected function name in prototype");
@@ -180,7 +200,7 @@ static std::unique_ptr<PrototypeAST> ParsePrototype()
 }
 
 /// definition ::= 'def' prototype expression
-static std::unique_ptr<FunctionAST> ParseDefinition()
+std::unique_ptr<FunctionAST> ParseDefinition()
 {
   getNextToken(); // eat def.
   auto Proto = ParsePrototype();
@@ -193,7 +213,7 @@ static std::unique_ptr<FunctionAST> ParseDefinition()
 }
 
 /// toplevelexpr ::= expression
-static std::unique_ptr<FunctionAST> ParseTopLevelExpr()
+std::unique_ptr<FunctionAST> ParseTopLevelExpr()
 {
   if (auto E = ParseExpression())
   {
@@ -206,21 +226,36 @@ static std::unique_ptr<FunctionAST> ParseTopLevelExpr()
 }
 
 /// external ::= 'extern' prototype
-static std::unique_ptr<PrototypeAST> ParseExtern()
+std::unique_ptr<PrototypeAST> ParseExtern()
 {
   getNextToken(); // eat extern.
   return ParsePrototype();
 }
 
 //===----------------------------------------------------------------------===//
-// Top-Level parsing
+// Top-Level parsing and JIT Driver
 //===----------------------------------------------------------------------===//
 
-static void HandleDefinition()
+void InitializeModule()
 {
-  if (ParseDefinition())
+  // Open a new context and module.
+  TheContext = std::make_unique<LLVMContext>();
+  TheModule = std::make_unique<Module>("my cool jit", *TheContext);
+
+  // Create a new builder for the module.
+  Builder = std::make_unique<IRBuilder<>>(*TheContext);
+}
+
+void HandleDefinition()
+{
+  if (auto FnAST = ParseDefinition())
   {
-    fprintf(stderr, "Parsed a function definition.\n");
+    if (auto *FnIR = FnAST->codegen())
+    {
+      fprintf(stderr, "Read function definition:");
+      FnIR->print(errs());
+      fprintf(stderr, "\n");
+    }
   }
   else
   {
@@ -229,11 +264,16 @@ static void HandleDefinition()
   }
 }
 
-static void HandleExtern()
+void HandleExtern()
 {
-  if (ParseExtern())
+  if (auto ProtoAST = ParseExtern())
   {
-    fprintf(stderr, "Parsed an extern\n");
+    if (auto *FnIR = ProtoAST->codegen())
+    {
+      fprintf(stderr, "Read extern: ");
+      FnIR->print(errs());
+      fprintf(stderr, "\n");
+    }
   }
   else
   {
@@ -242,12 +282,20 @@ static void HandleExtern()
   }
 }
 
-static void HandleTopLevelExpression()
+void HandleTopLevelExpression()
 {
   // Evaluate a top-level expression into an anonymous function.
-  if (ParseTopLevelExpr())
+  if (auto FnAST = ParseTopLevelExpr())
   {
-    fprintf(stderr, "Parsed a top-level expr\n");
+    if (auto *FnIR = FnAST->codegen())
+    {
+      fprintf(stderr, "Read top-level expression:");
+      FnIR->print(errs());
+      fprintf(stderr, "\n");
+
+      // Remove the anonymous expression.
+      FnIR->eraseFromParent();
+    }
   }
   else
   {
@@ -269,10 +317,10 @@ void MainLoop()
     case ';': // ignore top-level semicolons.
       getNextToken();
       break;
-    case tok_def:
+    case tok_skibidi:
       HandleDefinition();
       break;
-    case tok_extern:
+    case tok_rizz:
       HandleExtern();
       break;
     default:

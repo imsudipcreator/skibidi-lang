@@ -2,8 +2,6 @@
 #include <cctype>
 #include <cstdio>
 
-std::string IdentifierStr;
-double NumVal;
 
 int gettok()
 {

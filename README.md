@@ -2,6 +2,8 @@
 
 A Gen-Z programming language with zero cap syntax and full LLVM rizz.
 
+<img src="./assets/banner.png">
+
 > It's not meant for production, it's just for fun.
 
 ## Syntax
@@ -32,3 +34,9 @@ A Gen-Z programming language with zero cap syntax and full LLVM rizz.
 - Simple syntax
 - Expressions, variables, functions (WIP)
 - REPL (planned)
+
+## Screenshots
+<img src="./assets/syntax-ss.png">
+
+
+### Made with 🗿 by [Sudip Mahata](https://imsudip.is-a.dev)
